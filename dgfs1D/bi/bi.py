@@ -220,9 +220,8 @@ def main():
     # check if we are restarting
     if hasattr(args, 'process_restart'):
         import h5py as h5py
-        filename = args.dist.name + '_rank=' + str(rank)
-        check(os.file.exists(filename), "Distribution missing")
-        with h5py.File(args.dist.name, 'r') as h5f:
+        check(len(args.dist[0])==comm.size, "No. of distributions != nranks")
+        with h5py.File(args.dist[0][rank].name, 'r') as h5f:
             for p, d_ucoeff in enumerate(d_ucoeffs): 
                 dst = h5f['coeff'+str(p)]
                 ti = dst.attrs['time']
@@ -358,7 +357,7 @@ def main():
     nacptsteps = 0 # number of elasped steps in the current run
 
     # start timer
-    start = MPI.Wtime()  # timer()
+    start = timer()
 
     while(time < tf):
 
@@ -380,9 +379,12 @@ def main():
                 d_ucoeffs[p].nbytes)
 
     # print elasped time
-    end = MPI.Wtime()  # timer()
+    end = timer()
+    elapsed = np.array([end - start])
     if rank==root:
-        print("Nsteps", nacptsteps, ", elasped time", end - start, "s")
+        comm.Allreduce(get_mpi('in_place'), elapsed, op=get_mpi('sum'))
+        avgtime = elapsed[0]/comm.size
+        print("Nsteps", nacptsteps, ", elapsed time", avgtime, "s")
 
 
 def __main__():
